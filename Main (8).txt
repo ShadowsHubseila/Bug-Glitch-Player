@@ -1,0 +1,667 @@
+-- Bug Player GUI System com Sistema de Prisão/Cadeia (Local Target Version)
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Variáveis do sistema
+local selectedPlayers = {}
+local prisonedPlayers = {} -- Players na prisão
+local bugPlayerActive = false
+local prisonActive = false
+local bugConnection = nil
+local prisonConnections = {} -- Conexões da prisão
+
+-- Criar ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BugPlayerGUI"
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+-- Frame principal
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
+MainFrame.Size = UDim2.new(0, 320, 0, 550)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+-- Adicionar corner ao frame principal
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainFrame
+
+-- Header
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Parent = MainFrame
+Header.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Header.BorderSizePixel = 0
+Header.Size = UDim2.new(1, 0, 0, 50)
+
+local HeaderCorner = Instance.new("UICorner")
+HeaderCorner.CornerRadius = UDim.new(0, 12)
+HeaderCorner.Parent = Header
+
+-- Título
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Parent = Header
+Title.BackgroundTransparency = 1
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.Size = UDim2.new(1, -60, 1, 0)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "🐛 Bug System + ⛓️ Prisão"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextScaled = true
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Botão fechar
+local CloseButton = Instance.new("TextButton")
+CloseButton.Name = "CloseButton"
+CloseButton.Parent = Header
+CloseButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
+CloseButton.BorderSizePixel = 0
+CloseButton.Position = UDim2.new(1, -40, 0, 10)
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Text = "×"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextScaled = true
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 8)
+CloseCorner.Parent = CloseButton
+
+-- Status Frame
+local StatusFrame = Instance.new("Frame")
+StatusFrame.Name = "StatusFrame"
+StatusFrame.Parent = MainFrame
+StatusFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+StatusFrame.BorderSizePixel = 0
+StatusFrame.Position = UDim2.new(0, 10, 0, 60)
+StatusFrame.Size = UDim2.new(1, -20, 0, 130)
+
+local StatusCorner = Instance.new("UICorner")
+StatusCorner.CornerRadius = UDim.new(0, 8)
+StatusCorner.Parent = StatusFrame
+
+-- Status Label Bug
+local BugStatusLabel = Instance.new("TextLabel")
+BugStatusLabel.Name = "BugStatusLabel"
+BugStatusLabel.Parent = StatusFrame
+BugStatusLabel.BackgroundTransparency = 1
+BugStatusLabel.Position = UDim2.new(0, 10, 0, 10)
+BugStatusLabel.Size = UDim2.new(1, -20, 0, 20)
+BugStatusLabel.Font = Enum.Font.Gotham
+BugStatusLabel.Text = "Bug Status: ⚫ Inativo"
+BugStatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+BugStatusLabel.TextScaled = true
+BugStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Status Label Prisão
+local PrisonStatusLabel = Instance.new("TextLabel")
+PrisonStatusLabel.Name = "PrisonStatusLabel"
+PrisonStatusLabel.Parent = StatusFrame
+PrisonStatusLabel.BackgroundTransparency = 1
+PrisonStatusLabel.Position = UDim2.new(0, 10, 0, 35)
+PrisonStatusLabel.Size = UDim2.new(1, -20, 0, 20)
+PrisonStatusLabel.Font = Enum.Font.Gotham
+PrisonStatusLabel.Text = "Prisão Status: 🔓 Liberada"
+PrisonStatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+PrisonStatusLabel.TextScaled = true
+PrisonStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Selected Count Label
+local SelectedLabel = Instance.new("TextLabel")
+SelectedLabel.Name = "SelectedLabel"
+SelectedLabel.Parent = StatusFrame
+SelectedLabel.BackgroundTransparency = 1
+SelectedLabel.Position = UDim2.new(0, 10, 0, 60)
+SelectedLabel.Size = UDim2.new(1, -20, 0, 20)
+SelectedLabel.Font = Enum.Font.Gotham
+SelectedLabel.Text = "Players Selecionados: 0"
+SelectedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+SelectedLabel.TextScaled = true
+SelectedLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Prisioned Count Label
+local PrisionedLabel = Instance.new("TextLabel")
+PrisionedLabel.Name = "PrisionedLabel"
+PrisionedLabel.Parent = StatusFrame
+PrisionedLabel.BackgroundTransparency = 1
+PrisionedLabel.Position = UDim2.new(0, 10, 0, 85)
+PrisionedLabel.Size = UDim2.new(1, -20, 0, 20)
+PrisionedLabel.Font = Enum.Font.Gotham
+PrisionedLabel.Text = "Players Presos: 0"
+PrisionedLabel.TextColor3 = Color3.fromRGB(255, 170, 85)
+PrisionedLabel.TextScaled = true
+PrisionedLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Info Label
+local InfoLabel = Instance.new("TextLabel")
+InfoLabel.Name = "InfoLabel"
+InfoLabel.Parent = StatusFrame
+InfoLabel.BackgroundTransparency = 1
+InfoLabel.Position = UDim2.new(0, 10, 0, 110)
+InfoLabel.Size = UDim2.new(1, -20, 0, 15)
+InfoLabel.Font = Enum.Font.Gotham
+InfoLabel.Text = "💡 Clique nos nicks para selecionar players"
+InfoLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+InfoLabel.TextScaled = true
+InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Botões de controle - Linha 1
+local ControlFrame1 = Instance.new("Frame")
+ControlFrame1.Name = "ControlFrame1"
+ControlFrame1.Parent = MainFrame
+ControlFrame1.BackgroundTransparency = 1
+ControlFrame1.Position = UDim2.new(0, 10, 0, 200)
+ControlFrame1.Size = UDim2.new(1, -20, 0, 50)
+
+-- Botão atualizar
+local RefreshButton = Instance.new("TextButton")
+RefreshButton.Name = "RefreshButton"
+RefreshButton.Parent = ControlFrame1
+RefreshButton.BackgroundColor3 = Color3.fromRGB(85, 170, 255)
+RefreshButton.BorderSizePixel = 0
+RefreshButton.Position = UDim2.new(0, 0, 0, 0)
+RefreshButton.Size = UDim2.new(0.48, 0, 1, 0)
+RefreshButton.Font = Enum.Font.GothamBold
+RefreshButton.Text = "🔄 Atualizar"
+RefreshButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+RefreshButton.TextScaled = true
+
+local RefreshCorner = Instance.new("UICorner")
+RefreshCorner.CornerRadius = UDim.new(0, 8)
+RefreshCorner.Parent = RefreshButton
+
+-- Botão bug player
+local BugButton = Instance.new("TextButton")
+BugButton.Name = "BugButton"
+BugButton.Parent = ControlFrame1
+BugButton.BackgroundColor3 = Color3.fromRGB(85, 255, 85)
+BugButton.BorderSizePixel = 0
+BugButton.Position = UDim2.new(0.52, 0, 0, 0)
+BugButton.Size = UDim2.new(0.48, 0, 1, 0)
+BugButton.Font = Enum.Font.GothamBold
+BugButton.Text = "🟢 Ativar Bug"
+BugButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+BugButton.TextScaled = true
+
+local BugCorner = Instance.new("UICorner")
+BugCorner.CornerRadius = UDim.new(0, 8)
+BugCorner.Parent = BugButton
+
+-- Botões de controle - Linha 2 (Prisão)
+local ControlFrame2 = Instance.new("Frame")
+ControlFrame2.Name = "ControlFrame2"
+ControlFrame2.Parent = MainFrame
+ControlFrame2.BackgroundTransparency = 1
+ControlFrame2.Position = UDim2.new(0, 10, 0, 260)
+ControlFrame2.Size = UDim2.new(1, -20, 0, 50)
+
+-- Botão prender
+local PrisonButton = Instance.new("TextButton")
+PrisonButton.Name = "PrisonButton"
+PrisonButton.Parent = ControlFrame2
+PrisonButton.BackgroundColor3 = Color3.fromRGB(255, 170, 85)
+PrisonButton.BorderSizePixel = 0
+PrisonButton.Position = UDim2.new(0, 0, 0, 0)
+PrisonButton.Size = UDim2.new(0.48, 0, 1, 0)
+PrisonButton.Font = Enum.Font.GothamBold
+PrisonButton.Text = "⛓️ Prender"
+PrisonButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+PrisonButton.TextScaled = true
+
+local PrisonCorner = Instance.new("UICorner")
+PrisonCorner.CornerRadius = UDim.new(0, 8)
+PrisonCorner.Parent = PrisonButton
+
+-- Botão libertar
+local FreeButton = Instance.new("TextButton")
+FreeButton.Name = "FreeButton"
+FreeButton.Parent = ControlFrame2
+FreeButton.BackgroundColor3 = Color3.fromRGB(85, 255, 170)
+FreeButton.BorderSizePixel = 0
+FreeButton.Position = UDim2.new(0.52, 0, 0, 0)
+FreeButton.Size = UDim2.new(0.48, 0, 1, 0)
+FreeButton.Font = Enum.Font.GothamBold
+FreeButton.Text = "🔓 Libertar Todos"
+FreeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+FreeButton.TextScaled = true
+
+local FreeCorner = Instance.new("UICorner")
+FreeCorner.CornerRadius = UDim.new(0, 8)
+FreeCorner.Parent = FreeButton
+
+-- ScrollFrame para lista de players
+local PlayerScrollFrame = Instance.new("ScrollingFrame")
+PlayerScrollFrame.Name = "PlayerScrollFrame"
+PlayerScrollFrame.Parent = MainFrame
+PlayerScrollFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+PlayerScrollFrame.BorderSizePixel = 0
+PlayerScrollFrame.Position = UDim2.new(0, 10, 0, 320)
+PlayerScrollFrame.Size = UDim2.new(1, -20, 1, -330)
+PlayerScrollFrame.ScrollBarThickness = 6
+PlayerScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(85, 170, 255)
+
+local ScrollCorner = Instance.new("UICorner")
+ScrollCorner.CornerRadius = UDim.new(0, 8)
+ScrollCorner.Parent = PlayerScrollFrame
+
+-- Layout para lista de players
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.Parent = PlayerScrollFrame
+ListLayout.SortOrder = Enum.SortOrder.Name
+ListLayout.Padding = UDim.new(0, 5)
+
+-- Função para criar notificação
+local function createNotification(title, message, color)
+    local NotifGui = Instance.new("ScreenGui")
+    NotifGui.Parent = LocalPlayer.PlayerGui
+    NotifGui.ResetOnSpawn = false
+    
+    local NotifFrame = Instance.new("Frame")
+    NotifFrame.Parent = NotifGui
+    NotifFrame.BackgroundColor3 = color or Color3.fromRGB(40, 40, 40)
+    NotifFrame.BorderSizePixel = 0
+    NotifFrame.Position = UDim2.new(1, 10, 0, 100)
+    NotifFrame.Size = UDim2.new(0, 300, 0, 80)
+    
+    local NotifCorner = Instance.new("UICorner")
+    NotifCorner.CornerRadius = UDim.new(0, 8)
+    NotifCorner.Parent = NotifFrame
+    
+    local NotifTitle = Instance.new("TextLabel")
+    NotifTitle.Parent = NotifFrame
+    NotifTitle.BackgroundTransparency = 1
+    NotifTitle.Position = UDim2.new(0, 10, 0, 5)
+    NotifTitle.Size = UDim2.new(1, -20, 0, 25)
+    NotifTitle.Font = Enum.Font.GothamBold
+    NotifTitle.Text = title
+    NotifTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    NotifTitle.TextScaled = true
+    NotifTitle.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local NotifMessage = Instance.new("TextLabel")
+    NotifMessage.Parent = NotifFrame
+    NotifMessage.BackgroundTransparency = 1
+    NotifMessage.Position = UDim2.new(0, 10, 0, 30)
+    NotifMessage.Size = UDim2.new(1, -20, 0, 45)
+    NotifMessage.Font = Enum.Font.Gotham
+    NotifMessage.Text = message
+    NotifMessage.TextColor3 = Color3.fromRGB(200, 200, 200)
+    NotifMessage.TextScaled = true
+    NotifMessage.TextWrapped = true
+    NotifMessage.TextXAlignment = Enum.TextXAlignment.Left
+    NotifMessage.TextYAlignment = Enum.TextYAlignment.Top
+    
+    -- Animação de entrada
+    local slideIn = TweenService:Create(NotifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {Position = UDim2.new(1, -310, 0, 100)})
+    slideIn:Play()
+    
+    -- Remover após 3 segundos
+    game:GetService("Debris"):AddItem(NotifGui, 3)
+    wait(2.5)
+    local slideOut = TweenService:Create(NotifFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Position = UDim2.new(1, 10, 0, 100)})
+    slideOut:Play()
+end
+
+-- Função para prender players (impede movimento)
+local function prisonPlayers()
+    if next(selectedPlayers) == nil then
+        createNotification("❌ Erro", "Selecione pelo menos um player para prender.", Color3.fromRGB(255, 85, 85))
+        return
+    end
+    
+    local prisonedCount = 0
+    
+    for playerName, _ in pairs(selectedPlayers) do
+        local player = Players:FindFirstChild(playerName)
+        if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            if not prisonedPlayers[playerName] then
+                prisonedPlayers[playerName] = {
+                    player = player,
+                    originalPosition = player.Character.HumanoidRootPart.Position,
+                    connection = nil
+                }
+                
+                -- Criar conexão que mantém o player na posição original
+                prisonedPlayers[playerName].connection = RunService.Heartbeat:Connect(function()
+                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        -- Impede movimento mantendo posição fixa
+                        player.Character.HumanoidRootPart.CFrame = CFrame.new(prisonedPlayers[playerName].originalPosition)
+                        player.Character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                        player.Character.HumanoidRootPart.AngularVelocity = Vector3.new(0, 0, 0)
+                        
+                        -- Desativar controles do player
+                        if player.Character:FindFirstChild("Humanoid") then
+                            player.Character.Humanoid.PlatformStand = true
+                            player.Character.Humanoid.WalkSpeed = 0
+                            player.Character.Humanoid.JumpPower = 0
+                        end
+                    end
+                end)
+                
+                prisonedCount = prisonedCount + 1
+            end
+        end
+    end
+    
+    if prisonedCount > 0 then
+        prisonActive = true
+        PrisonStatusLabel.Text = "Prisão Status: 🔒 Ativa (" .. prisonedCount .. " presos)"
+        createNotification("⛓️ Players Presos", prisonedCount .. " player(s) foram presos e não podem se mover!", Color3.fromRGB(255, 170, 85))
+        updatePlayerList()
+    else
+        createNotification("❌ Erro", "Nenhum player válido foi encontrado para prender.", Color3.fromRGB(255, 85, 85))
+    end
+end
+
+-- Função para libertar todos os players
+local function freeAllPlayers()
+    local freedCount = 0
+    
+    for playerName, prisonData in pairs(prisonedPlayers) do
+        if prisonData.connection then
+            prisonData.connection:Disconnect()
+        end
+        
+        -- Restaurar controles do player
+        if prisonData.player and prisonData.player.Character and prisonData.player.Character:FindFirstChild("Humanoid") then
+            prisonData.player.Character.Humanoid.PlatformStand = false
+            prisonData.player.Character.Humanoid.WalkSpeed = 16
+            prisonData.player.Character.Humanoid.JumpPower = 50
+        end
+        
+        freedCount = freedCount + 1
+    end
+    
+    prisonedPlayers = {}
+    prisonActive = false
+    PrisonStatusLabel.Text = "Prisão Status: 🔓 Liberada"
+    
+    if freedCount > 0 then
+        createNotification("🔓 Players Libertos", freedCount .. " player(s) foram libertados da prisão!", Color3.fromRGB(85, 255, 170))
+        updatePlayerList()
+    else
+        createNotification("💡 Info", "Nenhum player estava preso.", Color3.fromRGB(85, 170, 255))
+    end
+end
+
+-- Função para alternar bug player
+local function toggleBugPlayer()
+    if bugPlayerActive then
+        -- Desativar bug
+        if bugConnection then
+            bugConnection:Disconnect()
+            bugConnection = nil
+        end
+        bugPlayerActive = false
+        BugStatusLabel.Text = "Bug Status: ⚫ Inativo"
+        BugButton.Text = "🟢 Ativar Bug"
+        BugButton.BackgroundColor3 = Color3.fromRGB(85, 255, 85)
+        createNotification("🐛 Bug Desativado", "O bug foi desativado para todos os players.", Color3.fromRGB(255, 85, 85))
+    else
+        -- Verificar se há players selecionados
+        if next(selectedPlayers) == nil then
+            createNotification("❌ Erro", "Selecione pelo menos um player antes de ativar o bug.", Color3.fromRGB(255, 85, 85))
+            return
+        end
+        
+        bugPlayerActive = true
+        BugStatusLabel.Text = "Bug Status: 🔴 Ativo"
+        BugButton.Text = "🔴 Desativar Bug"
+        BugButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
+        
+        local Remote = ReplicatedStorage.RE:FindFirstChild("1Gu1n")
+        
+        if not Remote then
+            createNotification("❌ Erro", "Remote não encontrado. Certifique-se de estar no jogo correto.", Color3.fromRGB(255, 85, 85))
+            bugPlayerActive = false
+            BugStatusLabel.Text = "Bug Status: ⚫ Inativo"
+            BugButton.Text = "🟢 Ativar Bug"
+            BugButton.BackgroundColor3 = Color3.fromRGB(85, 255, 85)
+            return
+        end
+        
+        local selectedPlayersList = {}
+        for playerName, _ in pairs(selectedPlayers) do
+            local player = Players:FindFirstChild(playerName)
+            if player then
+                table.insert(selectedPlayersList, player)
+            end
+        end
+        
+        if #selectedPlayersList == 0 then
+            createNotification("❌ Erro", "Nenhum dos players selecionados está no servidor.", Color3.fromRGB(255, 85, 85))
+            bugPlayerActive = false
+            BugStatusLabel.Text = "Bug Status: ⚫ Inativo"
+            BugButton.Text = "🟢 Ativar Bug"
+            BugButton.BackgroundColor3 = Color3.fromRGB(85, 255, 85)
+            return
+        end
+        
+        local index = 1
+        bugConnection = RunService.Stepped:Connect(function()
+            if not bugPlayerActive then return end
+            if #selectedPlayersList < 1 then return end
+            
+            index = index + 1
+            if index > #selectedPlayersList then index = 1 end
+            local target = selectedPlayersList[index]
+            
+            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                local crazyVector = Vector3.new(
+                    math.random(-1e7, 1e7),
+                    math.random(-1e7, 1e7),
+                    math.random(-1e7, 1e7)
+                )
+                local args = {
+                    [1] = target.Character.HumanoidRootPart,
+                    [2] = target.Character.HumanoidRootPart,
+                    [3] = crazyVector,
+                    [4] = target.Character.HumanoidRootPart.Position,
+                    [5] = LocalPlayer.Backpack:FindFirstChild("Assault") and LocalPlayer.Backpack.Assault.GunScript_Local:FindFirstChild("MuzzleEffect"),
+                    [6] = LocalPlayer.Backpack:FindFirstChild("Assault") and LocalPlayer.Backpack.Assault.GunScript_Local:FindFirstChild("HitEffect"),
+                    [7] = 10000,
+                    [8] = 10000,
+                    [9] = { [1] = false },
+                    [10] = {
+                        [1] = 10000,
+                        [2] = Vector3.new(3000, 3000, 3000),
+                        [3] = BrickColor.new(29),
+                        [4] = 0.05,
+                        [5] = Enum.Material.SmoothPlastic,
+                        [6] = 0.05
+                    },
+                    [11] = true,
+                    [12] = false
+                }
+                Remote:FireServer(unpack(args))
+            end
+        end)
+        
+        createNotification(" Bug Ativado", "Bug ativado para " .. #selectedPlayersList .. " player(s) selecionado(s).", Color3.fromRGB(85, 255, 85))
+    end
+end
+
+-- Função para atualizar lista de players
+local function updatePlayerList()
+    -- Limpar lista atual
+    for _, child in pairs(PlayerScrollFrame:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+    
+    -- Atualizar contadores
+    local selectedCount = 0
+    for _ in pairs(selectedPlayers) do
+        selectedCount = selectedCount + 1
+    end
+    SelectedLabel.Text = "Players Selecionados: " .. selectedCount
+    
+    local prisonedCount = 0
+    for _ in pairs(prisonedPlayers) do
+        prisonedCount = prisonedCount + 1
+    end
+    PrisionedLabel.Text = "Players Presos: " .. prisonedCount
+    
+    -- Adicionar players à lista
+    local players = Players:GetPlayers()
+    local yPosition = 0
+    
+    for i, player in pairs(players) do
+        if player ~= LocalPlayer then
+            local isSelected = selectedPlayers[player.Name] ~= nil
+            local isPrisioned = prisonedPlayers[player.Name] ~= nil
+            
+            local PlayerButton = Instance.new("TextButton")
+            PlayerButton.Name = player.Name
+            PlayerButton.Parent = PlayerScrollFrame
+            
+            -- Cor baseada no status
+            if isPrisioned then
+                PlayerButton.BackgroundColor3 = Color3.fromRGB(255, 170, 85) -- Laranja para presos
+            elseif isSelected then
+                PlayerButton.BackgroundColor3 = Color3.fromRGB(85, 255, 85) -- Verde para selecionados
+            else
+                PlayerButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45) -- Cinza para normais
+            end
+            
+            PlayerButton.BorderSizePixel = 0
+            PlayerButton.Position = UDim2.new(0, 5, 0, yPosition)
+            PlayerButton.Size = UDim2.new(1, -10, 0, 35)
+            PlayerButton.Font = Enum.Font.Gotham
+            
+            -- Texto baseado no status
+            local statusIcon = "⭕"
+            if isPrisioned then
+                statusIcon = "⛓️"
+            elseif isSelected then
+                statusIcon = "✅"
+            end
+            
+            PlayerButton.Text = statusIcon .. " " .. player.Name .. (isPrisioned and " (PRESO)" or "")
+            PlayerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            PlayerButton.TextScaled = true
+            PlayerButton.TextXAlignment = Enum.TextXAlignment.Left
+            
+            local PlayerCorner = Instance.new("UICorner")
+            PlayerCorner.CornerRadius = UDim.new(0, 6)
+            PlayerCorner.Parent = PlayerButton
+            
+            -- Padding interno
+            local PlayerPadding = Instance.new("UIPadding")
+            PlayerPadding.PaddingLeft = UDim.new(0, 10)
+            PlayerPadding.Parent = PlayerButton
+            
+            PlayerButton.MouseButton1Click:Connect(function()
+                if isPrisioned then
+                    createNotification("❌ Player Preso", player.Name .. " está preso e não pode ser selecionado/desmarcado.", Color3.fromRGB(255, 170, 85))
+                    return
+                end
+                
+                if selectedPlayers[player.Name] then
+                    selectedPlayers[player.Name] = nil
+                    createNotification("🐛 Player Desmarcado", player.Name .. " foi removido da seleção.", Color3.fromRGB(255, 170, 85))
+                else
+                    selectedPlayers[player.Name] = true
+                    createNotification("🐛 Player Selecionado", player.Name .. " foi adicionado à seleção.", Color3.fromRGB(85, 255, 85))
+                end
+                updatePlayerList()
+            end)
+            
+            yPosition = yPosition + 40
+        end
+    end
+    
+    -- Atualizar tamanho do canvas
+    PlayerScrollFrame.CanvasSize = UDim2.new(0, 0, 0, yPosition)
+    
+    if #players <= 1 then
+        local NoPlayersLabel = Instance.new("TextLabel")
+        NoPlayersLabel.Parent = PlayerScrollFrame
+        NoPlayersLabel.BackgroundTransparency = 1
+        NoPlayersLabel.Size = UDim2.new(1, 0, 1, 0)
+        NoPlayersLabel.Font = Enum.Font.Gotham
+        NoPlayersLabel.Text = "Nenhum outro player no servidor"
+        NoPlayersLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+        NoPlayersLabel.TextScaled = true
+    end
+end
+
+-- Conectar eventos
+RefreshButton.MouseButton1Click:Connect(function()
+    updatePlayerList()
+    createNotification("🔄 Lista Atualizada", "Lista de players foi atualizada!", Color3.fromRGB(85, 170, 255))
+end)
+
+BugButton.MouseButton1Click:Connect(toggleBugPlayer)
+
+PrisonButton.MouseButton1Click:Connect(prisonPlayers)
+
+FreeButton.MouseButton1Click:Connect(freeAllPlayers)
+
+CloseButton.MouseButton1Click:Connect(function()
+    -- Desativar bug se estiver ativo
+    if bugPlayerActive then
+        toggleBugPlayer()
+    end
+    -- Libertar todos os players presos
+    if prisonActive then
+        freeAllPlayers()
+    end
+    ScreenGui:Destroy()
+end)
+
+-- Efeitos visuais para botões
+local function addButtonEffects(button)
+    button.MouseEnter:Connect(function()
+        local tween = TweenService:Create(button, TweenInfo.new(0.2), {Size = button.Size + UDim2.new(0, 5, 0, 2)})
+        tween:Play()
+    end)
+    
+    button.MouseLeave:Connect(function()
+        local tween = TweenService:Create(button, TweenInfo.new(0.2), {Size = button.Size - UDim2.new(0, 5, 0, 2)})
+        tween:Play()
+    end)
+end
+
+addButtonEffects(RefreshButton)
+addButtonEffects(BugButton)
+addButtonEffects(PrisonButton)
+addButtonEffects(FreeButton)
+addButtonEffects(CloseButton)
+
+-- Limpeza automática quando players saem do jogo
+Players.PlayerRemoving:Connect(function(player)
+    if selectedPlayers[player.Name] then
+        selectedPlayers[player.Name] = nil
+    end
+    
+    if prisonedPlayers[player.Name] then
+        if prisonedPlayers[player.Name].connection then
+            prisonedPlayers[player.Name].connection:Disconnect()
+        end
+        prisonedPlayers[player.Name] = nil
+    end
+    
+    updatePlayerList()
+end)
+
+-- Animação de entrada da GUI
+MainFrame.Position = UDim2.new(0.1, 0, -1, 0)
+local slideIn = TweenService:Create(MainFrame, TweenInfo.new(0.7, Enum.EasingStyle.Back), {Position = UDim2.new(0.1, 0, 0.1, 0)})
+slideIn:Play()
+
+-- Inicializar
+updatePlayerList()
+createNotification("🐛⛓️ Sistema Carregado", "Bug Player + Prisão carregados! Selecione players e use as funções.", Color3.fromRGB(85, 170, 255))
